@@ -1,10 +1,14 @@
 package com.ictech.bustracker.core.di
 
 import android.app.Application
+import android.content.Context
+import android.os.Build
+import androidx.annotation.RequiresApi
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.ictech.bustracker.core.common.DefaultLocationTracker
 import com.ictech.bustracker.core.common.LocationTracker
+import com.ictech.bustracker.core.common.TelephonyInfoManager
 import com.ictech.bustracker.data.remote.TelephonyApi
 import dagger.Module
 import dagger.Provides
@@ -56,4 +60,11 @@ object AppModule {
         fusedLocationProviderClient = fusedLocationProviderClient,
         application = application
     )
+
+    @Provides
+    @Singleton
+    fun providesTelephonyInfoManager(
+        context: Context
+    ): TelephonyInfoManager =
+        TelephonyInfoManager(context)
 }

@@ -2,7 +2,6 @@ package com.ictech.bustracker.ui.screens
 
 import android.annotation.SuppressLint
 import android.os.Build
-import android.telephony.CellInfo
 import android.telephony.CellLocation
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
@@ -20,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -29,12 +27,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -44,22 +40,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.lifecycle.asLiveData
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.ictech.bustracker.core.common.TelephonyInfoManager
 import com.ictech.bustracker.domain.model.Location
-import com.ictech.bustracker.domain.model.StretchedCellInfo
 import com.ictech.bustracker.domain.model.TelephonyInfo
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.withTimeout
 import java.util.Date
-import kotlin.time.Duration.Companion.seconds
 
 @RequiresApi(Build.VERSION_CODES.R)
-@SuppressLint("PermissionLaunchedDuringComposition")
+@SuppressLint("PermissionLaunchedDuringComposition", "StateFlowValueCalledInComposition")
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
@@ -71,8 +61,7 @@ fun MainScreen(
     val time = remember { mutableStateOf("") }
     val tac: MutableState<String?> = remember { mutableStateOf("") }
     val imsi: MutableState<String?> = remember { mutableStateOf("") }
-    val cellIds = remember { mutableStateOf<CellLocation?>(null)  }
-    val cellInfo = remember { mutableStateOf<MutableList<StretchedCellInfo>?>(mutableListOf()) }
+    val cellInfo = remember { telephonyInfoManager.cellInfoList }.collectAsState()
 
     val shouldShowDialog = remember { mutableStateOf(true) }
     val locationPermissions = rememberMultiplePermissionsState(
@@ -84,30 +73,28 @@ fun MainScreen(
 
     LaunchedEffect(true){
         locationPermissions.launchMultiplePermissionRequest()
-        coroutineScope {
-            try {
-                while(!state.isConnected) {
-                    delay(1000)
-                    onEvent(MainScreenEvents.getCurrentLocation)
-                    time.value = Date().toLocaleString()
-                    imsi.value = telephonyInfoManager.getIMSI()
-                    tac.value = telephonyInfoManager.getTAC()
-                    telephonyInfoManager.getCellInfo()
-//                    cellInfo.value = telephonyInfoManager.sharedFlow.asLiveData().value
-                    onEvent(MainScreenEvents.postData(
-                        TelephonyInfo(
-                            cellInfo = cellInfo.value ?: mutableListOf(),
-                            imsi = imsi.value,
-                            location = Location(
-                                state.currentLocation?.latitude,
-                                state.currentLocation?.longitude
-                            ),
+        try {
+            while(!state.isConnected) {
+                delay(1000)
+                telephonyInfoManager.getCellInfo()
+                onEvent(MainScreenEvents.getCurrentLocation)
+                time.value = Date().toLocaleString()
+                imsi.value = telephonyInfoManager.getIMSI()
+                tac.value = telephonyInfoManager.getTAC()
+                println("cellInfo ${cellInfo.value}")
+                onEvent(MainScreenEvents.postData(
+                    TelephonyInfo(
+                        cellInfo = cellInfo.value,
+                        imsi = imsi.value,
+                        location = Location(
+                            state.currentLocation?.latitude,
+                            state.currentLocation?.longitude
                         )
-                    ))
-                }
-            } catch (ex: Exception) {
-                println("Got an exception! ${ex.localizedMessage}")
+                    )
+                ))
             }
+        } catch (ex: Exception) {
+            println("Got an exception! ${ex.localizedMessage}")
         }
     }
 
@@ -135,17 +122,15 @@ fun MainScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        println("cellinfo ${cellInfo.value}")
+//                        println("cellinfo ${cellInfo.value}")
                         Text(
-                            text = "TIME: ${time.value}\n" +
-                                    "LOCATION:${state.currentLocation} \n" +
+                            text = "LOCATION:${state.currentLocation} \n" +
                                     "IMSI: ${imsi.value}\n" +
                                     "TAC: ${tac.value}\n" +
                                     "CELL INFO: ${cellInfo.value}",
                             modifier = Modifier.clickable {
                                 clipboardManager.setText(AnnotatedString(
-                                    "TIME: ${time.value}\n" +
-                                            "LOCATION:${state.currentLocation} \n" +
+                                    "LOCATION:${state.currentLocation} \n" +
                                             "IMSI: ${imsi.value}\n" +
                                             "TAC: ${tac.value}\n" +
                                             "CELL INFO: ${cellInfo.value}"

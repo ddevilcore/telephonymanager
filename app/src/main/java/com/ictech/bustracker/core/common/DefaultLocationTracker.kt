@@ -43,7 +43,6 @@ class DefaultLocationTracker (
             fusedLocationProviderClient.lastLocation.apply {
                 if (isComplete) {
                     if (isSuccessful) {
-                        println("COROUTINE LOCATION $result")
                         cont.resume(result) {} // Resume coroutine with location result
                     } else {
                         cont.resume(null) {} // Resume coroutine with null location result

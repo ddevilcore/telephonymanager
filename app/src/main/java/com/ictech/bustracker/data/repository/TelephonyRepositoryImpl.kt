@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.ictech.bustracker.core.util.Response
 import com.ictech.bustracker.data.remote.TelephonyApi
+import com.ictech.bustracker.data.remote.dto.TelephonyApiDto
 import com.ictech.bustracker.domain.model.TelephonyInfo
 import com.ictech.bustracker.domain.repository.TelephonyRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,7 +31,13 @@ class TelephonyRepositoryImpl @Inject constructor(
             emit(Response.Loading(true))
 
             val response = try {
-                telephonyApi.postTelephonyData(data = data)
+                telephonyApi.postTelephonyData(
+                    data = TelephonyApiDto(
+                        items = data.cellInfo,
+                        imsi = data.imsi,
+                        location = data.location
+                    )
+                )
             } catch (e: IOException) {
                 e.printStackTrace()
                 emit(Response.Error("Could not post data"))

@@ -3,8 +3,6 @@ package com.ictech.bustracker.core.common
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
-import android.telephony.CellIdentityGsm
-import android.telephony.CellIdentityWcdma
 import android.telephony.CellInfo
 import android.telephony.CellInfoGsm
 import android.telephony.CellInfoWcdma
@@ -13,58 +11,58 @@ import android.telephony.TelephonyManager
 import android.telephony.TelephonyManager.CellInfoCallback
 import androidx.annotation.RequiresApi
 import com.ictech.bustracker.domain.model.StretchedCellInfo
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.util.Date
 
 @RequiresApi(Build.VERSION_CODES.R)
 @SuppressLint("MissingPermission")
-class TelephonyInfoManager(val context: Context) {
+class TelephonyInfoManager(private val context: Context) {
     private val manager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-    val sharedFlow = MutableSharedFlow<MutableList<StretchedCellInfo>>()
+    private val _cellInfoList = MutableStateFlow<MutableList<StretchedCellInfo>>(mutableListOf())
+    val cellInfoList = _cellInfoList.asStateFlow()
 
-    private fun cellInfoAcc(list: MutableList<StretchedCellInfo>, it: CellInfo): MutableList<StretchedCellInfo> {
+    private fun cellInfoAcc(it: CellInfo) {
+//        println("CONTEXT $context")
+        var cellList = mutableListOf<StretchedCellInfo>()
         if (it is CellInfoWcdma) {
-            list.add(
-                StretchedCellInfo(
-                    cellId = it.cellIdentity.cid,
-                    lac = it.cellIdentity.lac,
-                    signalStrength = it.cellSignalStrength,
-                    tac = getTAC(),
-                    time = Date().toLocaleString()
+            _cellInfoList.update { list ->
+                cellList.add(
+                    StretchedCellInfo(
+                        cellId = it.cellIdentity.cid,
+                        lac = it.cellIdentity.lac,
+                        signalStrength = it.cellSignalStrength,
+                        tac = getTAC(),
+                        time = Date().toLocaleString()
+                    )
                 )
-            )
+                cellList
+            }
         } else if (it is CellInfoGsm) {
-            list.add(
-                StretchedCellInfo(
-                    cellId = it.cellIdentity.cid,
-                    lac = it.cellIdentity.lac,
-                    signalStrength = it.cellSignalStrength,
-                    tac = getTAC(),
-                    time = Date().toLocaleString()
+            _cellInfoList.update { list ->
+                cellList.add(
+                    StretchedCellInfo(
+                        cellId = it.cellIdentity.cid,
+                        lac = it.cellIdentity.lac,
+                        signalStrength = it.cellSignalStrength,
+                        tac = getTAC(),
+                        time = Date().toLocaleString()
+                    )
                 )
-            )
+                cellList
+            }
         }
-        return list
     }
 
-    fun getCellInfo(): MutableList<StretchedCellInfo> {
-        var cellInfo: MutableList<StretchedCellInfo> = mutableListOf()
+    fun getCellInfo() {
         manager.requestCellInfoUpdate(context.mainExecutor, object: CellInfoCallback() {
             override fun onCellInfo(activeCellInfo: MutableList<CellInfo>) {
                 activeCellInfo.forEach {
-                    cellInfo = cellInfoAcc(cellInfo, it)
+                    cellInfoAcc(it)
                 }
             }
         })
-//        sharedFlow.emit(cellInfo)
-        return if (cellInfo.size > 0) {
-            cellInfo
-        } else {
-            manager.allCellInfo.forEach {
-                cellInfoAcc(cellInfo, it)
-            }
-            cellInfo
-        }
     }
 
     fun getCellLocation(): CellLocation {
